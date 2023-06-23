@@ -189,8 +189,8 @@ def read_directory(data):
         # directory is the wrong size
         # sometimes the leader includes some utf-8 by mistake
         directory = data[:dir_end].decode('utf-8')[24:]
-        if len(directory) % 12 != 0:
-            raise BadDictionary
+    if len(directory) % 12 != 0:
+        raise BadDictionary
     iter_dir = (directory[i * 12 : (i + 1) * 12] for i in range(len(directory) // 12))
     return dir_end, iter_dir
 
@@ -207,8 +207,7 @@ def get_tag_line(data, line):
     last = offset + length
     if data[last] != b'\x1e':
         length += data[last:].find(b'\x1e')
-    tag_line = data[offset + 1 : offset + length + 1]
-    return tag_line
+    return data[offset + 1 : offset + length + 1]
 
 
 @deprecated
@@ -275,13 +274,10 @@ def read_isbn(line, is_marc8=False):
     found = []
     if line.find('\x1f') != -1:
         for k, v in get_raw_subfields(line, ['a', 'z']):
-            m = re_isbn.match(v)
-            if m:
+            if m := re_isbn.match(v):
                 found.append(m.group(1))
-    else:
-        m = re_isbn.match(line[3:-1])
-        if m:
-            found = [m.group(1)]
+    elif m := re_isbn.match(line[3:-1]):
+        found = [m.group(1)]
     return map(str, tidy_isbn(found))
 
 
@@ -364,7 +360,6 @@ def split_line(s):
         if len(marks) == i + 1:
             if s[m + 2 :]:
                 ret.append(('v', s[m + 2 :]))
-        else:
-            if s[m + 2 : marks[i + 1]]:
-                ret.append(('v', s[m + 2 : marks[i + 1]]))
+        elif s[m + 2 : marks[i + 1]]:
+            ret.append(('v', s[m + 2 : marks[i + 1]]))
     return ret

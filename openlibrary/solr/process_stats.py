@@ -104,24 +104,19 @@ class LoanEntry(web.storage):
         return get_document(self['book'])
 
     def get_subjects(self, type="subject"):
-        w = self.book and self.book.works[0]
-        if w:
+        if w := self.book and self.book.works[0]:
             return w.get_subject_links(type)
         else:
             return []
 
     def get_author_keys(self):
-        w = self.book and self.book.works and self.book.works[0]
-        if w:
+        if w := self.book and self.book.works and self.book.works[0]:
             return [a.key for a in w.get_authors()]
         else:
             return []
 
     def get_title(self):
-        if self.book:
-            title = self.book.title
-        else:
-            title = self.metadata.get('title')
+        title = self.book.title if self.book else self.metadata.get('title')
         return title or "Untitled"
 
     def get_iaid(self):
@@ -153,7 +148,7 @@ def process(data):
         "ia_collections_id": doc.metadata.get("collection", []),
         "sponsor_s": doc.metadata.get("sponsor"),
         "contributor_s": doc.metadata.get("contributor"),
-        "start_time_dt": doc.t_start + "Z",
+        "start_time_dt": f"{doc.t_start}Z",
         "start_day_s": doc.t_start.split("T")[0],
     }
 
@@ -178,8 +173,8 @@ def process(data):
                 'lending_library',
             ]
             subjects = [s for s in subjects if s.slug not in system_subjects]
-        solrdoc['subject_key'] += [type + ":" + s.slug for s in subjects]
-        solrdoc['subject_facet'] += [type + ":" + s.title for s in subjects]
+        solrdoc['subject_key'] += [f"{type}:{s.slug}" for s in subjects]
+        solrdoc['subject_facet'] += [f"{type}:{s.title}" for s in subjects]
 
     add_subjects("subject")
     add_subjects("place")

@@ -70,7 +70,7 @@ class CoverNotSaved(Exception):
         self.f = f
 
     def __str__(self):
-        return "coverstore responded with: '%s'" % self.f
+        return f"coverstore responded with: '{self.f}'"
 
 
 class RequiredField(Exception):
@@ -78,7 +78,7 @@ class RequiredField(Exception):
         self.f = f
 
     def __str__(self):
-        return "missing required field: %s" % self.f
+        return f"missing required field: {self.f}"
 
 
 # don't use any of these as work titles
@@ -124,9 +124,7 @@ def is_redirect(thing):
     :param Thing thing:
     :rtype: bool
     """
-    if not thing:
-        return False
-    return thing.type.key == '/type/redirect'
+    return False if not thing else thing.type.key == '/type/redirect'
 
 
 def get_title(e):
@@ -261,14 +259,14 @@ def add_cover(cover_url, ekey, account_key=None):
     """
     olid = ekey.split('/')[-1]
     coverstore_url = config.get('coverstore_url').rstrip('/')
-    upload_url = coverstore_url + '/b/upload2'
+    upload_url = f'{coverstore_url}/b/upload2'
     if upload_url.startswith('//'):
-        upload_url = '{}:{}'.format(web.ctx.get('protocol', 'http'), upload_url)
+        upload_url = f"{web.ctx.get('protocol', 'http')}:{upload_url}"
     if not account_key:
-        user = accounts.get_current_user()
-        if not user:
+        if user := accounts.get_current_user():
+            account_key = user.get('key') or user.get('_key')
+        else:
             raise RuntimeError("accounts.get_current_user() failed")
-        account_key = user.get('key') or user.get('_key')
     params = {
         'author': account_key,
         'data': None,
@@ -277,7 +275,7 @@ def add_cover(cover_url, ekey, account_key=None):
         'ip': web.ctx.ip,
     }
     reply = None
-    for attempt in range(10):
+    for _ in range(10):
         try:
             payload = requests.compat.urlencode(params).encode('utf-8')
             response = requests.post(upload_url, data=payload)
@@ -294,16 +292,14 @@ def add_cover(cover_url, ekey, account_key=None):
         sleep(2)
     if not reply or reply.get('message') == 'Invalid URL':
         return
-    cover_id = int(reply['id'])
-    return cover_id
+    return int(reply['id'])
 
 
 def get_ia_item(ocaid):
     import internetarchive as ia
 
     cfg = {'general': {'secure': False}}
-    item = ia.get_item(ocaid, config=cfg)
-    return item
+    return ia.get_item(ocaid, config=cfg)
 
 
 def modify_ia_item(item, data):
@@ -333,7 +329,7 @@ def create_ol_subjects_for_ocaid(ocaid, subjects):
     if r.status_code != 200:
         return f'{item.identifier} failed: {r.content}'
     else:
-        return "success for %s" % item.identifier
+        return f"success for {item.identifier}"
 
 
 def update_ia_metadata_for_ol_edition(edition_id):
@@ -348,7 +344,7 @@ def update_ia_metadata_for_ol_edition(edition_id):
 
     data = {'error': 'No qualifying edition'}
     if edition_id:
-        ed = web.ctx.site.get('/books/%s' % edition_id)
+        ed = web.ctx.site.get(f'/books/{edition_id}')
         if ed.ocaid:
             work = ed.works[0] if ed.get('works') else None
             if work and work.key:
@@ -392,8 +388,7 @@ def isbns_from_record(rec):
     :param dict rec: Edition import record
     :rtype: list
     """
-    isbns = rec.get('isbn', []) + rec.get('isbn_10', []) + rec.get('isbn_13', [])
-    return isbns
+    return rec.get('isbn', []) + rec.get('isbn_10', []) + rec.get('isbn_13', [])
 
 
 def build_pool(rec):
@@ -435,22 +430,19 @@ def early_exit(rec):
     if 'openlibrary' in rec:
         return '/books/' + rec['openlibrary']
 
-    ekeys = editions_matched(rec, 'ocaid')
-    if ekeys:
+    if ekeys := editions_matched(rec, 'ocaid'):
         return ekeys[0]
 
     if isbns := isbns_from_record(rec):
-        ekeys = editions_matched(rec, 'isbn_', isbns)
-        if ekeys:
+        if ekeys := editions_matched(rec, 'isbn_', isbns):
             return ekeys[0]
 
     # only searches for the first value from these lists
-    for f in 'source_records', 'oclc_numbers', 'lccn':
+    for f in ('source_records', 'oclc_numbers', 'lccn'):
         if rec.get(f):
             if f == 'source_records' and not rec[f][0].startswith('ia:'):
                 continue
-            ekeys = editions_matched(rec, f, rec[f][0])
-            if ekeys:
+            if ekeys := editions_matched(rec, f, rec[f][0]):
                 return ekeys[0]
     return False
 
@@ -465,14 +457,13 @@ def editions_matched(rec, key, value=None):
     :rtpye: list
     :return: List of edition keys ["/books/OL..M",]
     """
-    if value is None and key not in rec:
-        return []
-
     if value is None:
+        if key not in rec:
+            return []
+
         value = rec[key]
     q = {'type': '/type/edition', key: value}
-    ekeys = list(web.ctx.site.things(q))
-    return ekeys
+    return list(web.ctx.site.things(q))
 
 
 def find_exact_match(rec, edition_pool):
@@ -629,11 +620,8 @@ def load_data(rec, account_key=None):
         edition['authors'] = authors
         reply['authors'] = author_reply
 
-    wkey = None
     work_state = 'created'
-    # Look for an existing work
-    if 'authors' in edition:
-        wkey = find_matching_work(edition)
+    wkey = find_matching_work(edition) if 'authors' in edition else None
     if wkey:
         w = web.ctx.site.get(wkey)
         work_state = 'matched'
@@ -768,8 +756,7 @@ def load(rec, account_key=None):
     # Add cover to edition
     if 'cover' in rec and not e.get_covers():
         cover_url = rec['cover']
-        cover_id = add_cover(cover_url, e.key, account_key=account_key)
-        if cover_id:
+        if cover_id := add_cover(cover_url, e.key, account_key=account_key):
             e['covers'] = [cover_id]
             need_edition_save = True
 

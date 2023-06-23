@@ -35,11 +35,10 @@ def follow_redirect(doc):
         # Hack to fix it temporarily.
         doc = web.ctx.site.get(doc.replace("/a/", "/authors/"))
 
-    if doc and doc.type.key == "/type/redirect":
-        key = doc.location
-        return web.ctx.site.get(key)
-    else:
+    if not doc or doc.type.key != "/type/redirect":
         return doc
+    key = doc.location
+    return web.ctx.site.get(key)
 
 
 class Edition(models.Edition):
@@ -161,7 +160,7 @@ class Edition(models.Edition):
         browserLendingCollections = ['browserlending']
         for collection in self.get_ia_meta_fields()['collection']:
             if collection in browserLendingCollections:
-                lending_resources.append('bookreader:%s' % self.ocaid)
+                lending_resources.append(f'bookreader:{self.ocaid}')
                 break
 
         lending_resources.extend(self.get_ia_meta_fields()['external-identifier'])
@@ -169,11 +168,7 @@ class Edition(models.Edition):
         return lending_resources
 
     def get_lending_resource_id(self, type):
-        if type == 'bookreader':
-            desired = 'bookreader:'
-        else:
-            desired = 'acs:%s:' % type
-
+        desired = 'bookreader:' if type == 'bookreader' else f'acs:{type}:'
         for urn in self.get_lending_resources():
             if urn.startswith(desired):
                 # Got a match
@@ -187,11 +182,7 @@ class Edition(models.Edition):
 
     def get_current_and_available_loans(self):
         current_loans = borrow.get_edition_loans(self)
-        current_and_available_loans = (
-            current_loans,
-            self._get_available_loans(current_loans),
-        )
-        return current_and_available_loans
+        return current_loans, self._get_available_loans(current_loans)
 
     def get_current_loans(self):
         return borrow.get_edition_loans(self)
@@ -246,9 +237,9 @@ class Edition(models.Edition):
         # Put default type at start of list, then sort by type name
         def loan_key(loan):
             if loan['resource_type'] == default_type:
-                return '1-%s' % loan['resource_type']
+                return f"1-{loan['resource_type']}"
             else:
-                return '2-%s' % loan['resource_type']
+                return f"2-{loan['resource_type']}"
 
         loans = sorted(loans, key=loan_key)
 
@@ -438,23 +429,21 @@ class Edition(models.Edition):
             citation['author'] = authors[0].name
         else:
             for i, a in enumerate(authors):
-                citation['author%s' % (i + 1)] = a.name
+                citation[f'author{i + 1}'] = a.name
 
         isbns = self.get('isbn_13', []) + self.get('isbn_10', [None])
-        citation.update(
-            {
-                'date': self.get('publish_date'),
-                'orig-date': self.works[0].get('first_publish_date'),
-                'title': self.title.replace("[", "&#91").replace("]", "&#93"),
-                'url': f'https://archive.org/details/{self.ocaid}'
-                if self.ocaid
-                else None,
-                'publication-place': self.get('publish_places', [None])[0],
-                'publisher': self.get('publishers', [None])[0],
-                'isbn': isbns[0],
-                'issn': self.get('identifiers', {}).get('issn', [None])[0],
-            }
-        )
+        citation |= {
+            'date': self.get('publish_date'),
+            'orig-date': self.works[0].get('first_publish_date'),
+            'title': self.title.replace("[", "&#91").replace("]", "&#93"),
+            'url': f'https://archive.org/details/{self.ocaid}'
+            if self.ocaid
+            else None,
+            'publication-place': self.get('publish_places', [None])[0],
+            'publisher': self.get('publishers', [None])[0],
+            'isbn': isbns[0],
+            'issn': self.get('identifiers', {}).get('issn', [None])[0],
+        }
 
         if self.lccn:
             citation['lccn'] = normalize_lccn(self.lccn[0])
@@ -565,8 +554,7 @@ class Work(models.Work):
                 return [Image(self._site, "w", int(w['cover_id']))]
             elif 'cover_edition_key' in w:
                 cover_edition = web.ctx.site.get("/books/" + w['cover_edition_key'])
-                cover = cover_edition and cover_edition.get_cover()
-                if cover:
+                if cover := cover_edition and cover_edition.get_cover():
                     return [cover]
         return []
 
@@ -623,7 +611,7 @@ class Work(models.Work):
         def flip(name):
             if name.count(",") == 1:
                 a, b = name.split(",")
-                return b.strip() + " " + a.strip()
+                return f"{b.strip()} {a.strip()}"
             return name
 
         if subjects and not isinstance(subjects[0], str):
@@ -689,7 +677,7 @@ class Work(models.Work):
         availability = lending.get_work_availability(work_id)
         if work_id in availability:
             if 'openlibrary_edition' in availability[work_id]:
-                return '/books/%s' % availability[work_id]['openlibrary_edition']
+                return f"/books/{availability[work_id]['openlibrary_edition']}"
 
         return None
 
@@ -703,9 +691,11 @@ class Work(models.Work):
         Get this work's editions sorted by publication year
         :param list[str] keys: ensure keys included in fetched editions
         """
-        db_query = {"type": "/type/edition", "works": self.key}
-        db_query['limit'] = limit or 10000
-
+        db_query = {
+            "type": "/type/edition",
+            "works": self.key,
+            'limit': limit or 10000,
+        }
         edition_keys = []
         if ebooks_only:
             if self._solr_data:
@@ -722,14 +712,13 @@ class Work(models.Work):
                 db_query["ocaid~"] = "*"
 
         if not edition_keys:
-            solr_is_up_to_date = (
+            if solr_is_up_to_date := (
                 self._solr_data
                 and self._solr_data.get('edition_key')
                 and len(self._solr_data.get('edition_key')) == self.edition_count
-            )
-            if solr_is_up_to_date:
+            ):
                 edition_keys += [
-                    "/books/" + olid for olid in self._solr_data.get('edition_key')
+                    f"/books/{olid}" for olid in self._solr_data.get('edition_key')
                 ]
             else:
                 # given librarians are probably doing this, show all editions
@@ -803,7 +792,7 @@ class User(models.User):
         )
 
     def get_users_settings(self):
-        settings = web.ctx.site.get('%s/preferences' % self.key)
+        settings = web.ctx.site.get(f'{self.key}/preferences')
         return settings.dict().get('notifications') if settings else {}
 
     def get_creation_info(self):
@@ -861,7 +850,7 @@ class UnitParser:
 
     def parse(self, s):
         """Parse the string and return storage object with specified fields and units."""
-        pattern = "^" + " *x *".join("([0-9.]*)" for f in self.fields) + " *(.*)$"
+        pattern = "^" + " *x *".join("([0-9.]*)" for _ in self.fields) + " *(.*)$"
         rx = web.re_compile(pattern)
         m = rx.match(s)
         return m and web.storage(zip(self.fields + ["units"], m.groups()))
@@ -875,8 +864,7 @@ class Changeset(client.Changeset):
         if revision == 0:
             return {"key": key, "type": {"key": "/type/delete"}}
         else:
-            d = web.ctx.site.get(key, revision).dict()
-            return d
+            return web.ctx.site.get(key, revision).dict()
 
     def process_docs_before_undo(self, docs):
         """Hook to process docs before saving for undo.
@@ -894,7 +882,7 @@ class Changeset(client.Changeset):
         docs = self.process_docs_before_undo(docs)
 
         data = {"parent_changeset": self.id}
-        comment = 'undo ' + self.comment
+        comment = f'undo {self.comment}'
         return web.ctx.site.save_many(docs, action="undo", data=data, comment=comment)
 
     def get_undo_changeset(self):

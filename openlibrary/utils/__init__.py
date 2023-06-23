@@ -144,7 +144,7 @@ def find_author_olid_in_string(s):
     >>> find_author_olid_in_string("some random string")
     """
     found = re.search(author_olid_embedded_re, s)
-    return found and found.group(0).upper()
+    return found and found[0].upper()
 
 
 work_olid_embedded_re = re.compile(r'OL\d+W', re.IGNORECASE)
@@ -159,7 +159,7 @@ def find_work_olid_in_string(s):
     >>> find_work_olid_in_string("some random string")
     """
     found = re.search(work_olid_embedded_re, s)
-    return found and found.group(0).upper()
+    return found and found[0].upper()
 
 
 def extract_numeric_id_from_olid(olid):

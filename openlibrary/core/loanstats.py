@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 class LoanStats:
     def __init__(self):
-        self.base_url = "http://%s/solr" % config.get("stats_solr")
+        self.base_url = f'http://{config.get("stats_solr")}/solr'
 
     def solr_select(self, params):
         fq = params.get("fq", [])
@@ -24,7 +24,7 @@ class LoanStats:
         logger.info("SOLR query %s", params)
 
         q = urlencode(params, doseq=True)
-        url = self.base_url + "/select?" + q
+        url = f"{self.base_url}/select?{q}"
         logger.info("requests.get(%s).json()", url)
         return requests.get(url).json()
 

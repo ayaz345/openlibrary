@@ -110,9 +110,7 @@ class NothingEncoder(json.JSONEncoder):
         Returns None if a value is a Nothing object. Otherwise,
         encode values using the default JSON encoder.
         """
-        if isinstance(obj, Nothing):
-            return None
-        return super().default(obj)
+        return None if isinstance(obj, Nothing) else super().default(obj)
 
 
 def json_encode(d, **kw):
@@ -184,10 +182,7 @@ def sprintf(s, *a, **kw):
     >>> sprintf('hello %(name)s', name='python')
     'hello python'
     """
-    if args := kw or a:
-        return s % args
-    else:
-        return s
+    return s % args if (args := kw or a) else s
 
 
 def cond(pred, true_value, false_value=""):
@@ -211,9 +206,7 @@ def truncate(text, limit):
     """Truncate text and add ellipses if it longer than specified limit."""
     if not text:
         return ''
-    if len(text) <= limit:
-        return text
-    return text[:limit] + "..."
+    return text if len(text) <= limit else f"{text[:limit]}..."
 
 
 def urlsafe(path):
@@ -224,14 +217,12 @@ def urlsafe(path):
 @web.memoize
 def _get_safepath_re():
     """Make regular expression that matches all unsafe chars."""
-    # unsafe chars according to RFC 2396
-    reserved = ";/?:@&=+$,"
     delims = '<>#%"'
     unwise = "{}|\\^[]`"
     space = ' \n\r'
 
-    unsafe = reserved + delims + unwise + space
-    pattern = '[%s]+' % "".join(re.escape(c) for c in unsafe)
+    unsafe = f";/?:@&=+$,{delims}{unwise}{space}"
+    pattern = f'[{"".join(re.escape(c) for c in unsafe)}]+'
     return re.compile(pattern)
 
 
@@ -269,7 +260,7 @@ def texsafe(text):
     """
     global _texsafe_re
     if _texsafe_re is None:
-        pattern = "[%s]" % re.escape("".join(list(_texsafe_map)))
+        pattern = f'[{re.escape("".join(list(_texsafe_map)))}]'
         _texsafe_re = re.compile(pattern)
 
     return _texsafe_re.sub(lambda m: _texsafe_map[m.group(0)], text)

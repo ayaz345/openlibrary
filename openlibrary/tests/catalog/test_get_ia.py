@@ -91,7 +91,9 @@ class TestGetIA:
         monkeypatch.setattr(
             ia,
             'get_metadata',
-            lambda itemid: {'_filenames': [itemid + '_marc.xml', itemid + '_meta.mrc']},
+            lambda itemid: {
+                '_filenames': [f'{itemid}_marc.xml', f'{itemid}_meta.mrc']
+            },
         )
 
         result = get_ia.get_marc_record_from_ia(item)
@@ -104,7 +106,9 @@ class TestGetIA:
         """When no XML MARC is listed in _filenames, the Binary MARC should be fetched."""
         monkeypatch.setattr(get_ia, 'urlopen_keep_trying', return_test_marc_bin)
         monkeypatch.setattr(
-            ia, 'get_metadata', lambda itemid: {'_filenames': [itemid + "_meta.mrc"]}
+            ia,
+            'get_metadata',
+            lambda itemid: {'_filenames': [f"{itemid}_meta.mrc"]},
         )
 
         result = get_ia.get_marc_record_from_ia(item)
@@ -120,7 +124,9 @@ class TestGetIA:
         """If a Binary MARC has a different length than stated in the MARC leader, it is probably due to bad character conversions."""
         monkeypatch.setattr(get_ia, 'urlopen_keep_trying', return_test_marc_bin)
         monkeypatch.setattr(
-            ia, 'get_metadata', lambda itemid: {'_filenames': [itemid + "_meta.mrc"]}
+            ia,
+            'get_metadata',
+            lambda itemid: {'_filenames': [f"{itemid}_meta.mrc"]},
         )
 
         with pytest.raises(BadLength):

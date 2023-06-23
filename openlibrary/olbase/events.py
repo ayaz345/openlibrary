@@ -50,8 +50,7 @@ def trigger_subevents(event):
 def invalidate_memcache(changeset):
     """Invalidate memcache entries effected by this change."""
     if memcache_client := get_memcache():
-        keys = MemcacheInvalidater().find_keys(changeset)
-        if keys:
+        if keys := MemcacheInvalidater().find_keys(changeset):
             logger.info("invalidating %s", keys)
             memcache_client.delete_multi(keys)
 
@@ -88,11 +87,10 @@ class MemcacheInvalidater:
         docs = changeset['docs'] + changeset['old_docs']
         rx = web.re_compile(r"(/people/[^/]*)/lists/OL\d+L")
         for doc in docs:
-            match = doc and rx.match(doc['key'])
-            if match:
-                yield "d" + match.group(1)  # d/users/foo
+            if match := doc and rx.match(doc['key']):
+                yield f"d{match.group(1)}"
                 for seed in doc.get('seeds', []):
-                    yield "d" + self.seed_to_key(seed)
+                    yield f"d{self.seed_to_key(seed)}"
 
     def find_edition_counts(self, changeset):
         """Returns the edition_count entries effected by this change."""
@@ -122,7 +120,7 @@ class MemcacheInvalidater:
         elif seed.startswith("subject:"):
             return "/subjects/" + seed[len("subject:") :]
         else:
-            return "/subjects/" + seed
+            return f"/subjects/{seed}"
 
 
 @web.memoize

@@ -17,7 +17,7 @@ for num, line in enumerate(open('author_file')):
     src_a = json.loads(line[:-1])
     m = re_author_key.match(src_a['key'])
     assert m
-    akey_num = int(m.group(1))
+    akey_num = int(m[1])
     db_a = {'akey': akey_num}
 
     for f in 'name', 'birth_date', 'death_date', 'date':

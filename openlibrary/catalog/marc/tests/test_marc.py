@@ -73,10 +73,7 @@ class TestMarcParse(unittest.TestCase):
         for value, expect in data:
             rec = MockRecord('020', [('a', value)])
             output = read_isbn(rec)
-            if len(expect) == 13:
-                isbn_type = 'isbn_13'
-            else:
-                isbn_type = 'isbn_10'
+            isbn_type = 'isbn_13' if len(expect) == 13 else 'isbn_10'
             assert expect == output[isbn_type][0]
 
     def test_read_pagination(self):

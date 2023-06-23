@@ -108,9 +108,7 @@ def get_subjects_from_ia(ia):
     formats = marc_formats(ia)
     if not any(formats.values()):
         return {}
-    rec = None
-    if formats['bin']:
-        rec = load_binary(ia)
+    rec = load_binary(ia) if formats['bin'] else None
     if not rec:
         assert formats['xml']
         rec = load_xml(ia)
@@ -124,8 +122,7 @@ re_ia_marc = re.compile(r'^(?:.*/)?([^/]+)_(marc\.xml|meta\.mrc)(:0:\d+)?$')
 def get_work_subjects(w, do_get_mc=True):
     found = set()
     for e in w['editions']:
-        sr = e.get('source_records', [])
-        if sr:
+        if sr := e.get('source_records', []):
             for i in sr:
                 if i.endswith('initial import'):
                     continue
@@ -136,12 +133,12 @@ def get_work_subjects(w, do_get_mc=True):
             mc = None
             if do_get_mc:
                 m = re_edition_key.match(e['key'])
-                mc = get_mc('/b/' + m.group(1))
+                mc = get_mc(f'/b/{m.group(1)}')
             if mc:
                 if mc.endswith('initial import'):
                     continue
                 if not mc.startswith('amazon:') and not re_ia_marc.match(mc):
-                    found.add('marc:' + mc)
+                    found.add(f'marc:{mc}')
     subjects = []
     for sr in found:
         if sr.startswith('marc:ia:'):
@@ -167,7 +164,7 @@ re_aspects = re.compile(' [Aa]spects$')
 
 @deprecated
 def find_aspects(f):
-    cur = [(i, j) for i, j in f.get_subfields('ax')]
+    cur = list(f.get_subfields('ax'))
     if len(cur) < 2 or cur[0][0] != 'a' or cur[1][0] != 'x':
         return
     a, x = cur[0][1], cur[1][1]
@@ -177,7 +174,7 @@ def find_aspects(f):
         return
     if a == 'Body, Human':
         a = 'the Human body'
-    return x + ' of ' + flip_subject(a)
+    return f'{x} of {flip_subject(a)}'
 
 
 @deprecated('Use openlibrary.catalog.marc.get_subjects.read_subject() instead.')

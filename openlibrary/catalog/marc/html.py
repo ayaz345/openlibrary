@@ -28,7 +28,7 @@ class html_record:
     def html_subfields(self, line):
         assert line[-1] == b'\x1e'[0]
         encode = {
-            'k': lambda s: '<b>$%s</b>' % esc(translate(s, self.is_marc8)),
+            'k': lambda s: f'<b>${esc(translate(s, self.is_marc8))}</b>',
             'v': lambda s: esc(translate(s, self.is_marc8)),
         }
         return ''.join(encode[k](v) for k, v in split_line(line[2:-1]))
@@ -39,8 +39,6 @@ class html_record:
             s = esc_sp(line[:-1].decode('utf-8', errors='replace'))
         else:
             s = (
-                esc_sp(line[0:2].decode('utf-8', errors='replace'))
-                + ' '
-                + self.html_subfields(line)
-            )
-        return '<large>' + tag + '</large> <code>' + s + '</code>'
+                esc_sp(line[:2].decode('utf-8', errors='replace')) + ' '
+            ) + self.html_subfields(line)
+        return f'<large>{tag}</large> <code>{s}</code>'

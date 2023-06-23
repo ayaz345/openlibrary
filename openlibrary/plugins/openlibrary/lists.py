@@ -138,14 +138,10 @@ class lists(delegate.page):
         return self.render(doc, lists)
 
     def get_doc(self, key):
-        if key.startswith("/subjects/"):
-            s = subjects.get_subject(key)
-            if s.work_count > 0:
-                return s
-            else:
-                return None
-        else:
+        if not key.startswith("/subjects/"):
             return web.ctx.site.get(key)
+        s = subjects.get_subject(key)
+        return s if s.work_count > 0 else None
 
     def render(self, doc, lists):
         return render_template("lists/lists.html", doc, lists)
@@ -273,7 +269,7 @@ class lists_json(delegate.page):
             elif seed.startswith("/subjects/"):
                 seed = seed.split("/")[-1]
                 if seed.split(":")[0] not in ["place", "person", "time"]:
-                    seed = "subject:" + seed
+                    seed = f"subject:{seed}"
                 seed = seed.replace(",", "_").replace("__", "_")
             elif seed.startswith("/"):
                 seed = {"key": seed}
@@ -303,9 +299,9 @@ def get_list(key, raw=False):
         return {
             "links": {
                 "self": lst.key,
-                "seeds": lst.key + "/seeds",
-                "subjects": lst.key + "/subjects",
-                "editions": lst.key + "/editions",
+                "seeds": f"{lst.key}/seeds",
+                "subjects": f"{lst.key}/subjects",
+                "editions": f"{lst.key}/editions",
             },
             "name": lst.name or None,
             "type": {"key": lst.key},
@@ -344,7 +340,7 @@ def get_list_seeds(key):
     if lst := web.ctx.site.get(key):
         seeds = [seed.dict() for seed in lst.get_seeds()]
         return {
-            "links": {"self": key + "/seeds", "list": key},
+            "links": {"self": f"{key}/seeds", "list": key},
             "size": len(seeds),
             "entries": seeds,
         }
@@ -357,10 +353,10 @@ class list_seeds(delegate.page):
     content_type = "application/json"
 
     def GET(self, key):
-        lst = get_list_seeds(key)
-        if not lst:
+        if lst := get_list_seeds(key):
+            return delegate.RawText(formats.dump(lst, self.encoding))
+        else:
             raise web.notfound()
-        return delegate.RawText(formats.dump(lst, self.encoding))
 
     def POST(self, key):
         site = web.ctx.site
@@ -438,12 +434,14 @@ class list_editions_json(delegate.page):
         i = web.input(limit=50, offset=0)
         limit = h.safeint(i.limit, 50)
         offset = h.safeint(i.offset, 0)
-        editions = get_list_editions(key, offset=offset, limit=limit, api=True)
-        if not editions:
+        if editions := get_list_editions(
+            key, offset=offset, limit=limit, api=True
+        ):
+            return delegate.RawText(
+                formats.dump(editions, self.encoding), content_type=self.content_type
+            )
+        else:
             raise web.notfound()
-        return delegate.RawText(
-            formats.dump(editions, self.encoding), content_type=self.content_type
-        )
 
 
 class list_editions_yaml(list_editions_json):
@@ -488,7 +486,7 @@ class list_subjects_json(delegate.page):
         limit = h.safeint(i.limit, 20)
 
         data = self.get_subjects(lst, limit=limit)
-        data['links'] = {"self": key + "/subjects", "list": key}
+        data['links'] = {"self": f"{key}/subjects", "list": key}
 
         text = formats.dump(data, self.encoding)
         return delegate.RawText(text, content_type=self.content_type)
@@ -504,7 +502,7 @@ class list_subjects_json(delegate.page):
         if key.startswith("subject:"):
             key = "/subjects/" + web.lstrips(key, "subject:")
         else:
-            key = "/subjects/" + key
+            key = f"/subjects/{key}"
         return {"name": s['name'], "count": s['count'], "url": key}
 
 
@@ -621,8 +619,7 @@ class export(delegate.page):
 
     def make_doc(self, rawdata):
         data = web.ctx.site._process_dict(common.parse_query(rawdata))
-        doc = client.create_thing(web.ctx.site, data['key'], data)
-        return doc
+        return client.create_thing(web.ctx.site, data['key'], data)
 
 
 class feeds(delegate.page):
@@ -632,7 +629,7 @@ class feeds(delegate.page):
         lst = web.ctx.site.get(key)
         if lst is None:
             raise web.notfound()
-        text = getattr(self, 'GET_' + name + '_' + fmt)(lst)
+        text = getattr(self, f'GET_{name}_{fmt}')(lst)
         return delegate.RawText(text)
 
     def GET_updates_atom(self, lst):

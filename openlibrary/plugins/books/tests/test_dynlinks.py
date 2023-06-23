@@ -205,10 +205,10 @@ class Mock:
         self.default = None
 
     def __call__(self, *a, **kw):
-        for a2, kw2, _return in self.calls:
-            if (a, kw) == (a2, kw2):
-                return _return
-        return self.default
+        return next(
+            (_return for a2, kw2, _return in self.calls if (a, kw) == (a2, kw2)),
+            self.default,
+        )
 
     def setup_call(self, *a, **kw):
         _return = kw.pop("_return", None)
@@ -342,12 +342,12 @@ def test_dynlinks(monkeypatch):
     js = dynlinks.dynlinks(["isbn:1234567890"], {})
     match = re.match('^var _OLBookInfo = ({.*});$', js)
     assert match is not None
-    assert json.loads(match.group(1)) == expected_result
+    assert json.loads(match[1]) == expected_result
 
     js = dynlinks.dynlinks(["isbn:1234567890"], {"callback": "func"})
     match = re.match('^({.*})$', js)
     assert match is not None
-    assert json.loads(match.group(1)) == expected_result
+    assert json.loads(match[1]) == expected_result
 
     js = dynlinks.dynlinks(["isbn:1234567890"], {"format": "json"})
     assert json.loads(js) == expected_result

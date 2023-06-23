@@ -240,9 +240,7 @@ record_tag = '{http://www.loc.gov/MARC21/slim}record'
 class TestSubjects:
     @pytest.mark.parametrize('item,expected', xml_samples)
     def test_subjects_xml(self, item, expected):
-        filename = (
-            os.path.dirname(__file__) + '/test_data/xml_input/' + item + '_marc.xml'
-        )
+        filename = f'{os.path.dirname(__file__)}/test_data/xml_input/{item}_marc.xml'
         element = etree.parse(filename).getroot()
         if element.tag != record_tag and element[0].tag == record_tag:
             element = element[0]
@@ -251,7 +249,7 @@ class TestSubjects:
 
     @pytest.mark.parametrize('item,expected', bin_samples)
     def test_subjects_bin(self, item, expected):
-        filename = os.path.dirname(__file__) + '/test_data/bin_input/' + item
+        filename = f'{os.path.dirname(__file__)}/test_data/bin_input/{item}'
         with open(filename, mode='rb') as f:
             rec = MarcBinary(f.read())
         assert read_subjects(rec) == expected

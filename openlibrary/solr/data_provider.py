@@ -129,7 +129,7 @@ class DataProvider:
     """
 
     def __init__(self) -> None:
-        self.ia_cache: dict[str, Optional[dict]] = dict()
+        self.ia_cache: dict[str, Optional[dict]] = {}
 
     @staticmethod
     async def _get_lite_metadata(ocaids: list[str], _recur_depth=0, _max_recur_depth=3):
@@ -193,12 +193,11 @@ class DataProvider:
             r.raise_for_status()
             response = r.json()
             if 'error' not in response:
-                lite_metadata = {
+                return {
                     key: response['result'][key]
                     for key in IA_METADATA_FIELDS
                     if key in response['result']
                 }
-                return lite_metadata
             else:
                 return {
                     'error': response['error'],
@@ -443,18 +442,20 @@ class BetterDataProvider(LegacyDataProvider):
 
     def _preload_works(self):
         """Preloads works for all editions in the cache."""
-        keys = []
-        for doc in self.cache.values():
-            if doc and doc['type']['key'] == '/type/edition' and doc.get('works'):
-                keys.append(doc['works'][0]['key'])
+        keys = [
+            doc['works'][0]['key']
+            for doc in self.cache.values()
+            if doc and doc['type']['key'] == '/type/edition' and doc.get('works')
+        ]
         # print "preload_works, found keys", keys
         self.preload_documents0(keys)
 
     def _preload_editions(self):
-        keys = []
-        for doc in self.cache.values():
-            if doc and doc['type']['key'] == '/type/work':
-                keys.append(doc['key'])
+        keys = [
+            doc['key']
+            for doc in self.cache.values()
+            if doc and doc['type']['key'] == '/type/work'
+        ]
         self.preload_editions_of_works(keys)
 
     async def _preload_metadata_of_editions(self):

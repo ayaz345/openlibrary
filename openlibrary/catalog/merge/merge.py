@@ -33,10 +33,8 @@ def build_titles(title):
     if re_amazon_title_paren.match(title):
         t2 = []
         for t in titles:
-            m = re_amazon_title_paren.match(t)
-            if m:
-                t2.append(m.group(1))
-                t2.append(normalize(m.group(1)))
+            if m := re_amazon_title_paren.match(t):
+                t2.extend((m.group(1), normalize(m.group(1))))
         titles += t2
 
     return {
@@ -89,16 +87,15 @@ def level1_merge(e1, e2):
     else:
         score.append(('short-title', 'mismatch', 0))
 
-    score.append(compare_date(e1, e2))
-    score.append(compare_isbn10(e1, e2))
+    score.extend((compare_date(e1, e2), compare_isbn10(e1, e2)))
     return score
 
 
 @deprecated('Use openlibrary.catalog.merge.merge_marc.compare_authors() instead.')
 def compare_authors(amazon, marc):
-    if len(amazon['authors']) == 0 and 'authors' not in marc:
-        return ('main', 'no authors', 75)
     if len(amazon['authors']) == 0:
+        if 'authors' not in marc:
+            return ('main', 'no authors', 75)
         return ('main', 'field missing from one record', -25)
 
     for name in amazon['authors']:
@@ -152,10 +149,7 @@ def strip_and_compare(t1, t2):
 def compare_title(amazon, marc):
     amazon_title = amazon['normalized_title'].lower()
     marc_title = normalize(marc['full_title']).lower()
-    short = False
-    if len(amazon_title) < 9 or len(marc_title) < 9:
-        short = True
-
+    short = len(amazon_title) < 9 or len(marc_title) < 9
     if not short:
         for a in amazon['titles']:
             for m in marc['titles']:
@@ -216,29 +210,26 @@ def short_part_publisher_match(p1, p2):
 
 @deprecated('Use openlibrary.catalog.merge.merge_marc.compare_publisher() instead.')
 def compare_publisher(amazon, marc):
-    if 'publisher' in amazon and 'publishers' in marc:
-        amazon_pub = amazon['publisher']
-        norm_amazon = normalize(amazon_pub)
-        for marc_pub in marc['publishers']:
-            norm_marc = normalize(marc_pub)
-            if norm_amazon == norm_marc:
-                return ('publisher', 'match', 100)
-            elif substr_match(norm_amazon, norm_marc) or substr_match(
-                norm_amazon.replace(' ', ''), norm_marc.replace(' ', '')
-            ):
-                return ('publisher', 'occur within the other', 100)
-            elif short_part_publisher_match(norm_amazon, norm_marc):
-                return ('publisher', 'match', 100)
-        return ('publisher', 'mismatch', -25)
-
     if 'publisher' not in amazon or 'publishers' not in marc:
         return ('publisher', 'either missing', 0)
+    amazon_pub = amazon['publisher']
+    norm_amazon = normalize(amazon_pub)
+    for marc_pub in marc['publishers']:
+        norm_marc = normalize(marc_pub)
+        if norm_amazon == norm_marc:
+            return ('publisher', 'match', 100)
+        elif substr_match(norm_amazon, norm_marc) or substr_match(
+            norm_amazon.replace(' ', ''), norm_marc.replace(' ', '')
+        ):
+            return ('publisher', 'occur within the other', 100)
+        elif short_part_publisher_match(norm_amazon, norm_marc):
+            return ('publisher', 'match', 100)
+    return ('publisher', 'mismatch', -25)
 
 
 @deprecated('Use openlibrary.catalog.merge.merge_marc.level2_merge() instead.')
 def level2_merge(amazon, marc):
-    score = []
-    score.append(compare_date(amazon, marc))
+    score = [compare_date(amazon, marc)]
     score.append(compare_isbn10(amazon, marc))
     score.append(compare_title(amazon, marc))
     if page_score := compare_number_of_pages(amazon, marc):

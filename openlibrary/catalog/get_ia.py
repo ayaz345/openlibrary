@@ -12,14 +12,14 @@ from openlibrary.core import ia
 
 
 IA_BASE_URL = config.get('ia_base_url')
-IA_DOWNLOAD_URL = '%s/download/' % IA_BASE_URL
+IA_DOWNLOAD_URL = f'{IA_BASE_URL}/download/'
 MAX_MARC_LENGTH = 100000
 
 
 # This function is called in openlibrary/catalog/marc/marc_subject.py as well as this file.
 def urlopen_keep_trying(url, headers=None, **kwargs):
     """Tries to request the url three times, raises HTTPError if 403, 404, or 416.  Returns a requests.Response"""
-    for i in range(3):
+    for _ in range(3):
         try:
             resp = requests.get(url, headers=headers, **kwargs)
             resp.raise_for_status()
@@ -42,8 +42,8 @@ def get_marc_record_from_ia(identifier):
     metadata = ia.get_metadata(identifier)
     filenames = metadata['_filenames']
 
-    marc_xml_filename = identifier + '_marc.xml'
-    marc_bin_filename = identifier + '_meta.mrc'
+    marc_xml_filename = f'{identifier}_marc.xml'
+    marc_bin_filename = f'{identifier}_meta.mrc'
 
     item_base = f'{IA_DOWNLOAD_URL}{identifier}/'
 
@@ -54,7 +54,7 @@ def get_marc_record_from_ia(identifier):
             root = etree.fromstring(data)
             return MarcXml(root)
         except Exception as e:
-            print("Unable to read MarcXML: %s" % e)
+            print(f"Unable to read MarcXML: {e}")
             traceback.print_exc()
 
     # If that fails, try marc.bin
@@ -65,7 +65,7 @@ def get_marc_record_from_ia(identifier):
 
 def files(identifier):
     url = item_file_url(identifier, 'files.xml')
-    for i in range(5):
+    for _ in range(5):
         try:
             tree = etree.parse(urlopen_keep_trying(url).content)
             break
@@ -150,28 +150,25 @@ def get_from_archive_bulk(locator):
 
 
 def item_file_url(identifier, ending, host=None, path=None):
-    if host and path:
-        url = f'http://{host}{path}/{identifier}_{ending}'
-    else:
-        url = '{0}{1}/{1}_{2}'.format(IA_DOWNLOAD_URL, identifier, ending)
-    return url
+    return (
+        f'http://{host}{path}/{identifier}_{ending}'
+        if host and path
+        else '{0}{1}/{1}_{2}'.format(IA_DOWNLOAD_URL, identifier, ending)
+    )
 
 
 def marc_formats(identifier, host=None, path=None):
-    files = {
-        identifier + '_marc.xml': 'xml',
-        identifier + '_meta.mrc': 'bin',
-    }
+    files = {f'{identifier}_marc.xml': 'xml', f'{identifier}_meta.mrc': 'bin'}
     has = {'xml': False, 'bin': False}
     url = item_file_url(identifier, 'files.xml', host, path)
-    for attempt in range(10):
+    for _ in range(10):
         f = urlopen_keep_trying(url)
         if f is not None:
             break
         sleep(10)
     if f is None:
         # TODO: log this, if anything uses this code
-        msg = "error reading %s_files.xml" % identifier
+        msg = f"error reading {identifier}_files.xml"
         return has
     data = f.content
     try:

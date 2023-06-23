@@ -23,11 +23,12 @@ def log(*args):
 
 class TarManager:
     def __init__(self):
-        self.tarfiles = {}
-        self.tarfiles[''] = (None, None, None)
-        self.tarfiles['S'] = (None, None, None)
-        self.tarfiles['M'] = (None, None, None)
-        self.tarfiles['L'] = (None, None, None)
+        self.tarfiles = {
+            '': (None, None, None),
+            'S': (None, None, None),
+            'M': (None, None, None),
+            'L': (None, None, None),
+        }
 
     def get_tarfile(self, name):
         id = web.numify(name)
@@ -35,8 +36,8 @@ class TarManager:
 
         # for id-S.jpg, id-M.jpg, id-L.jpg
         if '-' in name:
-            size = name[len(id + '-') :][0].lower()
-            tarname = size + "_" + tarname
+            size = name[len(f'{id}-'):][0].lower()
+            tarname = f"{size}_{tarname}"
         else:
             size = ""
 
